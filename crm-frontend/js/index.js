@@ -58,6 +58,11 @@ const svgOther = `
 <path opacity="0.7" fill-rule="evenodd" clip-rule="evenodd" d="M8 16C12.4183 16 16 12.4183 16 8C16 3.58172 12.4183 0 8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16ZM3 8C3 5.24 5.24 3 8 3C10.76 3 13 5.24 13 8C13 10.76 10.76 13 8 13C5.24 13 3 10.76 3 8ZM9.5 6C9.5 5.17 8.83 4.5 8 4.5C7.17 4.5 6.5 5.17 6.5 6C6.5 6.83 7.17 7.5 8 7.5C8.83 7.5 9.5 6.83 9.5 6ZM5 9.99C5.645 10.96 6.75 11.6 8 11.6C9.25 11.6 10.355 10.96 11 9.99C10.985 8.995 8.995 8.45 8 8.45C7 8.45 5.015 8.995 5 9.99Z" fill="#9873FF"/>
 </svg>`;
 
+const spinnerCircle = `
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M2 20C2 29.941 10.059 38 20 38C29.941 38 38 29.941 38 20C38 10.059 29.941 2 20 2C17.6755 2 15.454 2.4405 13.414 3.243" stroke="#9873FF" stroke-width="4" stroke-miterlimit="10" stroke-linecap="round"/>
+</svg>`
+
 function createHTMLElement (tag, tagClass, tagText) {
   const elem = document.createElement(tag);
   elem.classList.add(tagClass);
@@ -157,11 +162,15 @@ const createTable = () => {
   const headTableRow = createHTMLElement('tr', 'head-row');
 
   const headCellId = createTableCellTitle('id', 'ID', true);
+  headCellId.setAttribute('data-sort', 'id');
   const headCellFullName = createTableCellTitle('name', 'Фамилия Имя Отчество', true);
+  headCellFullName.setAttribute('data-sort', 'surname');
   const headCellNameNote = createHTMLElement('span', 'th-cell__note', 'А-Я');
   headCellFullName.append(headCellNameNote);
   const headCellCreateTime = createTableCellTitle('create-time', 'Дата и время создания', true);
+  headCellCreateTime.setAttribute('data-sort', 'createdAt');
   const headCellLastPatch = createTableCellTitle('last-patch', 'Последние изменения', true);
+  headCellLastPatch.setAttribute('data-sort', 'updatedAt');
   const headCellContacts = createTableCellTitle('contacts', 'Контакты', false);
   const headCellActions = createTableCellTitle('actions', 'Действия', false);
 
@@ -170,6 +179,7 @@ const createTable = () => {
   table.append(sortingDisplay);
 
   const tbody = createHTMLElement('tbody', 'table__tbody');
+  tbody.append(createPreloader())
   table.append(tbody);
 
   return table
@@ -178,7 +188,7 @@ const createTable = () => {
 const createTableBodyElement = (data) => {
   const clientTR = createHTMLElement('tr', 'table__item');
   clientTR.id = data.id;
-  const clientId = createHTMLElement('td', 'table__id', data.id.substr(0, 6));
+  const clientId = createHTMLElement('td', 'table__id', data.id);
   const clientFullName = createHTMLElement('td', 'table__full-name');
   const clientSurname = createHTMLElement('span', 'table__black', data.surname + ' ');
   clientSurname.classList.add('table__surname');
@@ -199,7 +209,6 @@ const createTableBodyElement = (data) => {
   const clientActionsDelete = createHTMLElement('button', 'table__btn', 'Удалить');
   clientActionsDelete.classList.add('table__delete');
   const deleteClient = createDeleteClientModal();
-  const editClient = createEditClientModal(data);
 
   for (const contact of data.contacts) {
     createContactItemByType(contact.type, contact.value, clientContacts)
@@ -211,14 +220,22 @@ const createTableBodyElement = (data) => {
   });
 
   const deleteById = () => {
-    deleteClient.deleteModalButton.addEventListener('click', () => {
-      deleteClientOnServer(data.id);
-      document.getElementById(data.id).remove();
+    deleteClient.deleteModalButton.addEventListener('click', async () => {
+      const response = await deleteClientOnServer(data.id);
+      if (response.status === 200) {
+        document.getElementById(data.id).remove();
+        deleteClient.deleteModal.remove();
+      } else {
+        const error = createHTMLElement('span', 'error-message', 'Не удалось удалить клиента');
+        deleteClient.deleteModalContent.append(error);
+      };
     });
   };
 
-  clientActionsEdit.addEventListener('click', () => {
-    document.body.append(editClient.editModal);
+  clientActionsEdit.addEventListener('click', async () => {
+    const clientEdit = await getCliens(data.id);
+    const createEditClient = createEditClientModal(clientEdit);
+    document.body.append(createEditClient.editModal);
   });
 
   clientFullName.append(clientSurname, clientName, clientSecondName);
@@ -238,13 +255,13 @@ function createModalForm () {
 
   const labelSurname = createHTMLElement('label', 'modal__label', 'Фамилия');
   labelSurname.for = 'floatingSurname';
-  const inputSurname = createHTMLINput('modal__input', 'Фамилия', true, 'text');
+  const inputSurname = createHTMLINput('modal__input', 'Фамилия', false, 'text');
   inputSurname.id = 'floatingSurname';
   const requiredSurname = createHTMLElement('span', 'modal__required', '*');
 
   const labelName = createHTMLElement('label', 'modal__label', 'Имя');
   labelName.for = 'floatingName';
-  const inputName = createHTMLINput('modal__input', 'Имя', true, 'text');
+  const inputName = createHTMLINput('modal__input', 'Имя', false, 'text');
   inputName.id = 'floatingName';
   const requiredName = createHTMLElement('span', 'modal__required', '*');
 
@@ -284,7 +301,7 @@ function createModalForm () {
       contactsBlock.prepend(contactItem.contact);
       btnAddContact.classList.remove('btn-active');
     }
-  })
+  });
 
   const iconBtnAddContactDefault = createHTMLElement('span', 'modal__contact-icon');
   iconBtnAddContactDefault.classList.add('modal__icon-default', 'icon-active');
@@ -325,7 +342,7 @@ function createModalForm () {
   }
 }
 //Создание модального окна добавления нового клиента
-function createClientNew () {
+const createClientNew = () => {
   const form = createModalForm();
   const modalWindow = createHTMLElement('div', 'modal');
   modalWindow.classList.add('site-modal', 'modal-active');
@@ -343,11 +360,10 @@ function createClientNew () {
   });
 
   form.modalClose.addEventListener('click', (e) => {
-    e.preventDefault();
     modalWindow.remove();
   });
 
-  form.modalForm.addEventListener('submit', () => {
+  form.modalForm.addEventListener('submit', (e) => {
     const contactTypes = document.querySelectorAll('.contact__name');
     const contactInputs = document.querySelectorAll('.contact__input');
     let contacts = [];
@@ -363,8 +379,12 @@ function createClientNew () {
     clientObj.lastName = form.inputSecondName.value;
     clientObj.contacts = contacts;
     console.log(clientObj);
-    sendClientData(clientObj, 'POST');
-  })
+    if (!validationContacts(modalWindow) || !validationTextInput(form.inputSurname, true) || !validationTextInput(form.inputName, true) || !validationTextInput(form.inputSecondName, false)) {
+      e.preventDefault();
+    } else {
+      sendClientData(clientObj, 'POST');
+    };
+  });
 
   return modalWindow
 }
@@ -388,19 +408,27 @@ const createDeleteClientModal = () => {
   window.addEventListener('click', (e) => {
     if (e.target === deleteModal) {
       deleteModal.remove();
+      const errorMes = deleteModal.querySelector('.error-message');
+      if (errorMes) {
+        errorMes.remove();
+      };
     };
   });
 
   deleteModalBack.addEventListener('click', () => {
     deleteModal.remove();
+    const errorMes = deleteModal.querySelector('.error-message');
+    if (errorMes) {
+      errorMes.remove();
+    };
   });
 
   modalClose.addEventListener('click', () => {
     deleteModal.remove();
-  });
-
-  deleteModalButton.addEventListener('click', () => {
-    deleteModal.remove();
+    const errorMes = deleteModal.querySelector('.error-message');
+    if (errorMes) {
+      errorMes.remove();
+    };
   });
 
   return {
@@ -414,7 +442,7 @@ const createEditClientModal = (data) => {
   const editModal = createHTMLElement('div', 'modal');
   const editModalContent = createHTMLElement('div', 'modal__content');
   const editForm = createModalForm();
-  const titleId = createHTMLElement('span', 'modal__id', 'ID: ' + data.id.substr(0, 6));
+  const titleId = createHTMLElement('span', 'modal__id', 'ID: ' + data.id);
   editForm.modalTitle.textContent = 'Изменить данные';
   editForm.btnModalCancel.textContent = 'Удалить клиента';
 
@@ -445,6 +473,7 @@ const createEditClientModal = (data) => {
     const createContact = createContactItem();
     createContact.contactName.textContent = contact.type;
     createContact.contactInput.value = contact.value;
+    findingTypeContact(contact.type, createContact.contactInput);
     editForm.contactsBlock.prepend(createContact.contact);
     editForm.contactsBlock.style.backgroundColor = 'var(--color-athens-gray)';
   }
@@ -453,7 +482,7 @@ const createEditClientModal = (data) => {
     editForm.btnAddContact.classList.remove('btn-active');
   };
 
-  editForm.modalForm.addEventListener('submit', () => {
+  editForm.modalForm.addEventListener('submit', (e) => {
     const contactsTypes = document.querySelectorAll('.contact__name');
     const contactsValues = document.querySelectorAll('.contact__input');
     let contacts = [];
@@ -468,8 +497,11 @@ const createEditClientModal = (data) => {
     client.surname = editForm.inputSurname.value;
     client.lastName = editForm.inputSecondName.value;
     client.contacts = contacts;
-
-    sendClientData(client, 'PATCH', data.id);
+    if (!validationContacts(editModal) || !validationTextInput(editForm.inputSurname, true) || !validationTextInput(editForm.inputName, true) || !validationTextInput(editForm.inputSecondName, false)) {
+      e.preventDefault();
+    } else {
+      sendClientData(client, 'PATCH', data.id);
+    };
   });
 
   editForm.modalTitle.append(titleId);
@@ -479,6 +511,20 @@ const createEditClientModal = (data) => {
   return {
     editModal,
     editModalContent
+  };
+};
+// Определение типа контакта
+const findingTypeContact = (textContact, input) => {
+  if (textContact !== 'Телефон' && textContact !== 'Email') {
+    input.type = 'text';
+  } else {
+    if (textContact === 'Email') {
+      input.type = 'email';
+    } else {
+      if (textContact === 'Телефон') {
+        input.type = 'tel';
+      };
+    };
   };
 };
 //Создание контакта в модальном окне
@@ -493,7 +539,7 @@ function createContactItem () {
   const contactEmail = createHTMLElement('li', 'contact__item', 'Email');
   const contactOuther = createHTMLElement('li', 'contact__item', 'Другое');
 
-  const contactInput = createHTMLINput('contact__input', 'Введите данные контакта', false, 'Text');
+  const contactInput = createHTMLINput('contact__input', 'Введите данные контакта', false, 'tel');
 
   const contactDelete = createHTMLElement('button', 'contact__delete');
   contactDelete.innerHTML = svgDeleteContact;
@@ -521,6 +567,7 @@ function createContactItem () {
   const setType = (type) => {
     type.addEventListener('click', () => {
       contactName.textContent = type.textContent;
+      findingTypeContact(type.textContent, contactInput);
       contactList.classList.remove('contact__list-active');
       contactName.classList.remove('contact__list-active');
     });
@@ -530,6 +577,17 @@ function createContactItem () {
   for (const type of typesArray) {
     setType(type);
   }
+
+  contactInput.addEventListener('input', (e) => {
+    if (contactInput.type === 'tel') {
+      onPhoneInput(e);
+    };
+  });
+  contactInput.addEventListener('keydown', () => {
+    if (contactInput.type === 'tel') {
+      onPhoneKeyDown(contactInput);
+    };
+  });
 
   contactDelete.append(contactDeleteTooltip);
   contactList.append(contactPhone, contactEmail, contactVk, contactFB, contactOuther);
@@ -542,6 +600,53 @@ function createContactItem () {
     contactInput,
     contactDelete
   }
+}
+//Создание маски телефона
+const onPhoneInput = (e) => {
+  const input = e.target;
+  let inputNumbersValue = getInputNumbersValue(input);
+  let formatedInputValue = '';
+  selectionStart = input.selectionStart;
+  if (!inputNumbersValue) {
+    return input.value = '';
+  };
+  if (input.value.length != selectionStart) {
+    console.log(e)
+    if (e.data && /\D/g.test(e.data)) {
+     input.value = inputNumbersValue;
+    }
+    return
+  }
+  if (['7', '8', '9'].indexOf(inputNumbersValue[0]) > -1) {
+    if (inputNumbersValue[0] == '9') inputNumbersValue = '7' + inputNumbersValue;
+    let firstSymbol = (inputNumbersValue[0] == '8') ? '8' : '+7';
+    formatedInputValue = firstSymbol + ' ';
+    if (inputNumbersValue.length > 1) {
+      formatedInputValue += '(' + inputNumbersValue.substring(1, 4);
+    };
+    if (inputNumbersValue.length >= 5) {
+      formatedInputValue += ') ' + inputNumbersValue.substring(4, 7);
+    };
+    if (inputNumbersValue.length >= 8) {
+      formatedInputValue += '-' + inputNumbersValue.substring(7, 9);
+    };
+    if (inputNumbersValue.length >= 10) {
+      formatedInputValue += '-' + inputNumbersValue.substring(9, 11);
+    };
+  } else {
+    formatedInputValue = '+' + inputNumbersValue.substring(0, 16);
+  };
+  input.value = formatedInputValue;
+}
+
+const onPhoneKeyDown = (input) => {
+  if (getInputNumbersValue(input).length == 1) {
+    input.value = '';
+  }
+}
+
+const getInputNumbersValue = (input) => {
+  return input.value.replace(/\D/g, "");
 }
 //Создание ссылки контакта
 const createContactLink = (type, value, element, svg, item) => {
@@ -586,30 +691,27 @@ const createContactItemByType = (type, value, item) => {
       break;
   }
 }
-// Сортировка таблицы
-const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
-
-const comparer = (idx, asc) => (a, b) => ((v1, v2) =>
-  v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2) ? v1 - v2 : v1.toString().localeCompare(v2))(getCellValue(asc ? a : b, idx), getCellValue(asc ? b : a, idx));
-//Фильтрация (поиск) таблицы
-function tableSearch() {
-  const phrase = document.querySelector('.header__search');
-  const table = document.querySelector('table');
-  const regPhrase = new RegExp(phrase.value, 'i');
-  let flag = false;
-  for (let i = 1; i < table.rows.length; i++) {
-    flag = false;
-    for (let j = table.rows[i].cells.length - 3; j >= 0; j--) {
-      flag = regPhrase.test(table.rows[i].cells[j].textContent);
-      if (flag) break;
-    }
-    if (flag) {
-      table.rows[i].style.display = "";
+// Функция сравнения массивов сортировки
+const sortingArray = (sortingArray, sortingOfValue, dataArray) => {
+  const tbody = document.querySelector('tbody');
+  for (let i = 0; i < dataArray.length; i++) {
+    let value = dataArray[i];
+    if (value.toLowerCase().trim() !== sortingOfValue[i].toLowerCase().trim()) {
+      tbody.querySelectorAll('tr').forEach(tr => tr.remove());
+      for (const client of sortingArray) {
+        tbody.append(createTableBodyElement(client));
+      };
+      break
     } else {
-      table.rows[i].style.display = "none";
-    }
-  }
-}
+      const reverseSort = sortingArray.reverse();
+      tbody.querySelectorAll('tr').forEach(tr => tr.remove());
+      for (const client of reverseSort) {
+        tbody.append(createTableBodyElement(client));
+      };
+      break
+    };
+  };
+};
 //Создание корректной даты
 const formateDate = (date) => {
   const newDate = new Date(date);
@@ -631,19 +733,98 @@ const formateTime = (date) => {
   const resultTime = newDate.toLocaleString('ru', correctTime);
   return resultTime
 }
+
+//Валидация
+const validationTextInput = (input, flag) => {
+  input.addEventListener('input', () => {
+    const parent = input.closest('div');
+    const errorMessage = parent.querySelector('.message__in-valid');
+    if (errorMessage) {
+      errorMessage.remove();
+    };
+    input.classList.remove('input__in-valid');
+  })
+  if (input.value === '') {
+    if (flag === true) {
+      validationText(input, 'message__in-valid', 'Поле обязательно к заполнению', 'input__in-valid');
+      return false
+    }
+    return true
+  } else {
+    if (!/^[А-Яа-я]+$/.test(input.value)) {
+    validationText(input, 'message__in-valid', 'Имя и фамилия не может содержать спецсимволы, только буквы кириллицы', 'input__in-valid');
+    return false
+    }
+    return true
+  };
+};
+
+const validationText = (elem, classError, text, invalidClass) => {
+  elem.classList.add(invalidClass);
+  const message = createHTMLElement('span', classError, text);
+  const parent = elem.closest('div');
+  parent.append(message);
+};
+
+const validationContacts = (modal) => {
+  const contacts = modal.querySelectorAll('.contact__input');
+  if (contacts.length !== 0) {
+    for (const contact of contacts) {
+      contact.addEventListener('input', () => {
+        const parent = contact.closest('div');
+        const errorMessage = parent.querySelector('.contact__error');
+      if (errorMessage) {
+        errorMessage.remove();
+      };
+      contact.classList.remove('contact__in-valid');
+      })
+      if (contact.value === '') {
+        validationText(contact, 'contact__error' ,'Введите контакт' , 'contact__in-valid');
+        return false
+      };
+      if (contact.type === 'tel' && !validationPhone(contact)) {
+        return false
+      }
+      return true
+    };
+  } else {
+    return true
+  }
+}
+
+const validationPhone = (contact) => {
+  const number = contact.value.replace(/\D/g, "");
+  console.log(number)
+  if (number.length <= 10) {
+    validationText(contact, 'contact__error', 'Некорректный номер', 'contact__in-valid');
+    return false
+  }
+  return true
+};
+
+// Прелоадер
+const createPreloader = () => {
+  const preloaderBlock = createHTMLElement('div', 'preloader');
+  const preloaderSpinner = createHTMLElement('span', 'preloader__spinner');
+  preloaderSpinner.innerHTML = spinnerCircle;
+
+  preloaderBlock.append(preloaderSpinner);
+  return preloaderBlock
+}
+
+const apiClients = `http://localhost:3000/api/clients`;
 //Запрос на получение данных о клиенте
 const getCliens = async (id) => {
-  const response = await fetch('http://localhost:3000/api/clients', {
+  const response = await fetch(apiClients + `/${id ? id :''}`, {
     method: 'GET'
     });
   const result = await response.json();
-  console.log(result);
   return result
 };
 //Универсальный запрос, либо для создания нового клиента, либо для изменения данных о существующем
 const sendClientData = async (client, method, id = null) => {
   try {
-    await fetch(`http://localhost:3000/api/clients/${method === 'POST' ? '' : id}`, {
+    await fetch(apiClients + `/${method === 'POST' ? '' : id}`, {
       method,
       body: JSON.stringify(client)
     });
@@ -653,31 +834,149 @@ const sendClientData = async (client, method, id = null) => {
 };
 //Запрос на удаление клиента
 const deleteClientOnServer = async (id) => {
-  const response = await fetch(`http://localhost:3000/api/clients/${id}`, {
+  const response = await fetch(apiClients + `/${id}`, {
     method: 'DELETE',
   });
+  return response
 };
+//Фильтрация (поиск) таблицы
+const tableSearch = async (value) => {
+  const response = await fetch(apiClients + `?search=${value}`, {
+    });
+  const result = await response.json();
+  return result
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   //Создание основной разметки
-  const clients = await getCliens();
   createHeader();
   createClients();
   //Создание строки в таблице для каждого клиента из базы
+  const clients = await getCliens();
   for (const client of clients) {
     document.querySelector('tbody').append(createTableBodyElement(client))
+  };
+  const preloader = document.querySelector('.preloader');
+  preloader.remove();
+
+  // Событие сортировки
+  const headingTable = document.querySelectorAll('th[data-sort]');
+  console.log(headingTable);
+  for (const heading of headingTable) {
+    heading.addEventListener('click', async () => {
+      const clients = await getCliens();
+      const sortAttribute = heading.getAttribute('data-sort');
+      if (sortAttribute === 'id') {
+        const clientsSort = clients.sort((a, b) => a.id > b.id ? 1 : -1);
+        let arrayFromHTML = [];
+        let arrayFromData = [];
+        document.querySelectorAll('.table__id').forEach(id => arrayFromHTML.push(id.textContent));
+        for (const obj of clientsSort) {
+          arrayFromData.push(obj.id);
+        };
+        sortingArray(clientsSort, arrayFromHTML, arrayFromData);
+      }
+      if (sortAttribute === 'surname') {
+        const clientsSort = clients.sort((a, b) => a.surname.toLowerCase() > b.surname.toLowerCase() ? 1 : -1);
+        let arrayFromHTML = [];
+        let arrayFromData = [];
+        document.querySelectorAll('.table__surname').forEach(surname => arrayFromHTML.push(surname.textContent));
+        for (const obj of clientsSort) {
+          arrayFromData.push(obj.surname);
+        };
+        sortingArray(clientsSort, arrayFromHTML, arrayFromData);
+      }
+      if (sortAttribute === 'createdAt') {
+        const clientsSort = clients.sort((a, b) => a.createdAt.toLowerCase() > b.createdAt.toLowerCase() ? 1 : -1);
+        let arrayFromHTML = [];
+        let arrayFromData = [];
+        document.querySelectorAll('.table__created').forEach(createdAt => arrayFromHTML.push(createdAt.textContent));
+        for (const obj of clientsSort) {
+          const date = String(formateDate(obj.createdAt));
+          const time = String(formateTime(obj.createdAt));
+          arrayFromData.push(date + time);
+        };
+        sortingArray(clientsSort, arrayFromHTML, arrayFromData);
+      }
+      if (sortAttribute === 'updatedAt') {
+        const clientsSort = clients.sort((a, b) => a.updatedAt.toLowerCase() > b.updatedAt.toLowerCase() ? 1 : -1);
+        let arrayFromHTML = [];
+        let arrayFromData = [];
+        document.querySelectorAll('.table__changed').forEach(updatedAt => arrayFromHTML.push(updatedAt.textContent));
+        for (const obj of clientsSort) {
+          const date = String(formateDate(obj.updatedAt));
+          const time = String(formateTime(obj.updatedAt));
+          arrayFromData.push(date + time);
+        };
+        console.log(arrayFromHTML, arrayFromData)
+        sortingArray(clientsSort, arrayFromHTML, arrayFromData);
+      }
+    })
   }
-  //Событие сортировки
-  document.querySelectorAll('th').forEach(th => th.addEventListener('click', (() => {
-    const table = th.closest('table');
-    const tbody = table.querySelector('tbody');
-    Array.from(tbody.querySelectorAll('tr'))
-      .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
-      .forEach(tr => tbody.appendChild(tr) );
-  })));
+  // Автодополнение
+  const autoComplete = () => {
+    const container = document.querySelector('.header__form');
+    const list = createHTMLElement('ul', 'search__list');
+    container.append(list);
+    window.addEventListener('click', (e) => {
+      if (e.target !== list) {
+        list.remove();
+      }
+    })
+    return list
+  }
+
+  const createItemAutoComplete = (client, input, list) => {
+    if (client.name.toLowerCase().includes(input.value.toLowerCase())) {
+
+      console.log(list.querySelectorAll('search__item'));
+      const item = createHTMLElement('li', 'search__item', client.name);
+      item.addEventListener('click', () => {
+        input.value = item.textContent;
+      });
+      list.append(item);
+    }
+    if (client.surname.toLowerCase().includes(input.value.toLowerCase())) {
+      const item = createHTMLElement('li', 'search__item', client.surname);
+      item.addEventListener('click', () => {
+        input.value = item.textContent;
+      });
+      list.append(item);
+    }
+    for (const contact of client.contacts) {
+      if (contact.value.trim().toLowerCase().includes(input.value.trim().toLowerCase())) {
+        const item = createHTMLElement('li', 'search__item', contact.value);
+        item.addEventListener('click', () => {
+          input.value = item.textContent;
+        });
+        list.append(item);
+      }
+    }
+  }
+
+
   // Событие фильтрации
   const search = document.querySelector('.header__search');
+
   search.addEventListener('input', () => {
-    setTimeout(tableSearch, 300);
+    const list = document.querySelector('.search__list');
+    if (list) list.remove();
+    if (search.value === '') document.querySelectorAll('.search__list').forEach(el => el.remove());
+
+    setTimeout(async () => {
+    let searchClients = await tableSearch(search.value);
+
+    const searchList = autoComplete();
+
+    for (const client of searchClients) {
+      createItemAutoComplete(client, search, searchList)
+    }
+
+    const tbody = document.querySelector('tbody');
+    tbody.querySelectorAll('tr').forEach(row => row.remove());
+    for (const client of searchClients) {
+      document.querySelector('tbody').append(createTableBodyElement(client))
+    }
+    }, 300)
   });
 });

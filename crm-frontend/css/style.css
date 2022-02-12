@@ -105,6 +105,7 @@ button:focus-visible {
 }
 
 .header__form {
+  position: relative;
   line-height: 1;
 }
 
@@ -119,6 +120,33 @@ button:focus-visible {
 
 .header__search::placeholder {
   color: var(--color-silver-chalice);
+}
+
+.search__list {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: scroll;
+  border: 1px solid var(--color-gray-suit);
+  transform: translateY(100%);
+  z-index: 1;
+}
+
+.search__item {
+  font-size: 14px;
+  padding: 10px;
+  border-bottom: 1px solid var(--color-silver-chalice);
+  background-color: var(--color-white);
+  color: var(--color-mine-shaft);
+  cursor: pointer;
+  transition: background-color .2s ease-in-out, transform .2s ease-in-out;
+  transform: scaleY(0, 100%);
+}
+
+.search__item:hover {
+  background-color: var(--color-melrose);
 }
 
 /* Clients */
@@ -141,6 +169,29 @@ button:focus-visible {
   min-width: 728px;
   margin-bottom: 40px;
   overflow-x: scroll;
+}
+
+.table__tbody {
+  position: relative;
+}
+
+.preloader {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-white);
+}
+
+.preloader__spinner {
+  animation-name: spinner;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 .th-cell {
@@ -432,6 +483,7 @@ button:focus-visible {
   /* Стили для контактов */
 
 .contact {
+  position: relative;
   display: flex;
   align-items: center;
   width: 390px;
@@ -614,12 +666,13 @@ button:focus-visible {
 }
 
 .table__id {
-  width: 7%;
+  max-width: 100px;
   color: var(--color-silver-chalice);
+  word-wrap: break-word;
 }
 
 .table__full-name {
-  width: 31%;
+  min-width: 181px;
   color: var(--color-mine-shaft);
 }
 
@@ -639,10 +692,16 @@ button:focus-visible {
   color: var(--color-silver-chalice);
 }
 
+.table__contacts {
+  width: 136px;
+}
+
 .table__item .table__contacts {
   padding: 10px 8px 10px 20px;
-  max-width: 123px;
-  min-width: 123px;
+}
+
+.table__actions {
+  width: 235px;
 }
 
 .table__btn {
@@ -715,6 +774,13 @@ button:focus-visible {
 
 .contacts__link {
   position: relative;
+  margin-right: 7px;
+  padding: 0;
+  font-size: 0;
+}
+
+.contacts__link:nth-child(5n) {
+  margin-right: 0;
 }
 
 .contacts__link g {
@@ -734,25 +800,67 @@ button:focus-visible {
 }
 
 .contacts__link:hover .contacts__link-tooltip {
-opacity: 1;
-visibility: visible;
+  opacity: 1;
+  visibility: visible;
 }
 
 .contacts__link .contacts__link-tooltip {
-  min-width: fit-content;
+  top: -50px;
+  min-width: 135px;
+  text-align: center;
   color: var(--color-white);
 }
 
+.input__in-valid {
+  border-bottom-color: var(--color-burnt-sienna);
+}
+
+.message__in-valid {
+  position: absolute;
+  bottom: -15px;
+  left: 0;
+  font-size: 10px;
+  color: var(--color-burnt-sienna);
+}
+
+.error-message {
+  margin-top: 15px;
+  font-size: 12px;
+  color: var(--color-burnt-sienna);
+}
+
+.contact__in-valid {
+  border: 2px solid var(--color-burnt-sienna);
+}
+
+.contact__error {
+  position: absolute;
+  font-size: 10px;
+  bottom: -15px;
+  left: 140px;
+  color: var(--color-burnt-sienna);
+}
+
 @media(max-width: 1024px) {
-  .table__full-name {
-    width: 23.5%;
-  }
   .table__item td {
     padding: 20px 10px;
   }
+  .table__id {
+    max-width: 80px;
+  }
   .table__changed,
   .table__created {
-    width: 14%;
+    width: 13.5%;
+  }
+  .table__contacts {
+    min-width: 140px;
+  }
+}
+
+@media(max-width: 880px) {
+  .table__created-date,
+  .table__changed-date {
+    display: block;
   }
 }
 
@@ -769,10 +877,6 @@ visibility: visible;
   .table__changed,
   .table__created {
     width: 15%;
-  }
-  .table__created-date,
-  .table__changed-date {
-    display: block;
   }
   .table__edit {
     margin-right: 0;
@@ -806,6 +910,14 @@ visibility: visible;
   }
 }
 
+@keyframes spinner {
+  from {
+    transform: rotate(0);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 @keyframes fadeModal {
   from {
